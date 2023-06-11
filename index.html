@@ -1,16 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<title>three.js ar - dragging</title>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-	<link type="text/css" rel="stylesheet" href="main.css">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="icon" href="data:">
+<title>three.js ar - dragging</title>
 </head>
 <body>
 
 <div id="info">
-	<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> ar - dragging
+	forked <a href=https://code4fukui.github.io/three.js_examples/?q=webxr#webxr_ar_dragging>ar - dragging</a> / <a href="https://threejs.org">three.js</a><br>
+	<a href="./">colorfull</a><br>
+	<a href="?grayscale=true">grayscale</a><br>
+	<a href="?grayscale=true&opacity=1.0">gray scale and no transparency</a><br>
+	<a href="?opacity=1.0">colorfull and no transparency</a><br>
 </div>
+
+<style>
+body {
+	margin: 0;
+	font-family: sans-serif;
+}
+#info {
+	position: absolute;
+	background-color: rgba(155, 155, 155, 0.5);
+	padding: 0.5em;
+	margin: 0.5em;
+	color: #111;
+}
+a {
+	color: #228 !important;
+}
+</style>
 
 <!-- Import maps polyfill -->
 <!-- Remove this when import maps will be widely supported -->
@@ -27,7 +43,7 @@
 
 <script type="module">
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js"; // for PC
 import { ARButton } from "three/addons/webxr/ARButton.js";
 
 let container;
@@ -41,10 +57,86 @@ const tempMatrix = new THREE.Matrix4();
 
 let group;
 
-init();
-animate();
+const onWindowResize = () => {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+};
 
-function init() {
+const isTouch = (intersection) => {
+	const d = intersection.distance;
+	return d > 0 && d < .10;
+};
+
+const onSelectStart = (event) => {
+	const controller = event.target;
+	const intersections = getIntersections(controller);
+	const objects = [];
+	for (const intersection of intersections) {
+		const object = intersection.object;
+		object.material.emissive.b = 1;
+		controller.attach(object);
+		objects.push(object);
+		if (isTouch(intersection)) {
+			break;
+		}
+	}
+	controller.userData.selected = objects;
+};
+
+const onSelectEnd = (event) => {
+	const controller = event.target;
+	if (controller.userData.selected !== undefined) {
+		for (const object of controller.userData.selected) {
+			object.material.emissive.b = 0;
+			group.attach(object);
+		}
+		controller.userData.selected = undefined;
+	}
+};
+
+const getIntersections = (controller) => {
+	tempMatrix.identity().extractRotation(controller.matrixWorld);
+	raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+	raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+	return raycaster.intersectObjects(group.children, false);
+};
+
+const intersectObjects = (controller) => {
+	// Do not highlight when already selected
+	if (controller.userData.selected !== undefined) return;
+
+	const intersections = getIntersections(controller);
+	for (const intersection of intersections) {
+		const object = intersection.object;
+		object.material.emissive.r = 1;
+		intersected.push(object);
+		if (isTouch(intersection)) {
+			object.material.emissive.g = 1;
+			break;
+		}
+	}
+};
+
+const cleanIntersected = () => {
+	while (intersected.length) {
+		const object = intersected.pop();
+		object.material.emissive.r = 0;
+		object.material.emissive.g = 0;
+	}
+};
+
+const render = () => {
+	cleanIntersected();
+	intersectObjects(controller1);
+	intersectObjects(controller2);
+	renderer.render(scene, camera);
+};
+const animate = () => {
+	renderer.setAnimationLoop(render);
+};
+
+const init = () => {
 	container = document.createElement("div");
 	document.body.appendChild(container);
 
@@ -67,17 +159,23 @@ function init() {
 	scene.add(group);
 
 	const geometries = [
-		new THREE.BoxGeometry(1.6, 0.9, 0.1),
+		new THREE.BoxGeometry(1.6, 0.8, 0.1),
 		new THREE.BoxGeometry(0.2, 0.2, 0.2),
-		new THREE.ConeGeometry(0.2, 0.2, 64),
-		new THREE.CylinderGeometry(0.2, 0.2, 0.2, 64),
-		new THREE.CylinderGeometry(0.05, 0.05, 2, 64),
-		new THREE.IcosahedronGeometry(0.2, 8),
-		new THREE.TorusGeometry(0.2, 0.04, 64, 32)
+		new THREE.BoxGeometry(0.2, 0.4, 0.2),
+		new THREE.BoxGeometry(0.4, 0.4, 0.1),
+		new THREE.ConeGeometry(0.1, 0.2, 64),
+		new THREE.CylinderGeometry(0.1, 0.1, 0.2, 64),
+		new THREE.CylinderGeometry(0.1, 0.1, 0.8, 64),
+		new THREE.IcosahedronGeometry(0.1, 8),
+		new THREE.TorusGeometry(0.2 - 0.04, 0.04, 64, 32)
 	];
 
-	const grayscale = true; // false;
-	for (let i = 0; i < 50; i++) {
+	//const grayscale = true;
+	const param = new URL(location.href).searchParams;
+	const grayscale = param.get("grayscale") || false;
+	const opacity = parseFloat(param.get("opacity")) || 0.8;
+	console.log(param, opacity);
+	for (let i = 0; i < 100; i++) {
 		const geometry = geometries[Math.floor(Math.random() * geometries.length)];
 		const getColor = () => {
 			if (grayscale) {
@@ -91,8 +189,8 @@ function init() {
 			color: getColor(),
 			roughness: 1.0,
 			metalness: 0.0,
-			transparent: true,
-			opacity: 0.85,
+			transparent: opacity < 1.0,
+			opacity,
 		});
 
 		const object = new THREE.Mesh(geometry, material);
@@ -105,7 +203,7 @@ function init() {
 		object.rotation.y = Math.random() * 2 * Math.PI;
 		object.rotation.z = Math.random() * 2 * Math.PI;
 
-		object.scale.setScalar(Math.random() + 0.5);
+		//object.scale.setScalar(Math.random() / 2 + 0.5);
 
 		group.add(object);
 	}
@@ -137,75 +235,11 @@ function init() {
 
 	//
 	window.addEventListener("resize", onWindowResize);
-}
+};
 
-function onWindowResize() {
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-	renderer.setSize(window.innerWidth, window.innerHeight);
-}
+init();
+animate();
 
-function onSelectStart(event) {
-	const controller = event.target;
-	const intersections = getIntersections(controller);
-	const objects = [];
-	for (const intersection of intersections) {
-		const object = intersection.object;
-		object.material.emissive.b = 1;
-		controller.attach(object);
-		objects.push(object);
-	}
-	controller.userData.selected = objects;
-}
-
-function onSelectEnd(event) {
-	const controller = event.target;
-	if (controller.userData.selected !== undefined) {
-		for (const object of controller.userData.selected) {
-			object.material.emissive.b = 0;
-			group.attach(object);
-		}
-		controller.userData.selected = undefined;
-	}
-}
-
-function getIntersections(controller) {
-	tempMatrix.identity().extractRotation(controller.matrixWorld);
-	raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-	raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-	return raycaster.intersectObjects(group.children, false);
-}
-
-function intersectObjects(controller) {
-	// Do not highlight when already selected
-	if (controller.userData.selected !== undefined) return;
-
-	const intersections = getIntersections(controller);
-	for (const intersection of intersections) {
-		const object = intersection.object;
-		object.material.emissive.r = 1;
-		intersected.push(object);
-	}
-}
-
-function cleanIntersected() {
-	while (intersected.length) {
-		const object = intersected.pop();
-		object.material.emissive.r = 0;
-	}
-}
-
-//
-function animate() {
-	renderer.setAnimationLoop(render);
-}
-
-function render() {
-	cleanIntersected();
-	intersectObjects(controller1);
-	intersectObjects(controller2);
-	renderer.render(scene, camera);
-}
 </script>
 </body>
 </html>
