@@ -236,7 +236,9 @@ const init = () => {
 	// line
 	const makeLine = (len) => {
 		const material = new THREE.LineBasicMaterial({
-			color: 0x0000ff
+			//color: 0xff0000, // red
+			//color: 0x0000ff, // blue
+			color: 0xffffff, // white
 		});
 		const points = [];
 		points.push(new THREE.Vector3(0, 0, 0));
