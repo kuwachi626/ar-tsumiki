@@ -55,7 +55,7 @@ import { ARButton } from "three/addons/webxr/ARButton.js";
 const param = new URL(location.href).searchParams;
 const grayscale = param.get("grayscale") || false;
 const monocolor = param.get("monocolor") || undefined;
-const opacity = parseFloat(param.get("opacity")) || 0.8;
+const opacity = parseFloat(param.get("opacity")) || 1;
 const geometry = param.get("geometry") || "blocks"; // or jig
 const nset = param.get("nset") || 5;
 const snap = param.get("snap") || 0;
